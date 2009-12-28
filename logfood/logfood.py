@@ -1,0 +1,86 @@
+import os
+from datetime import datetime, timedelta
+
+from google.appengine.api import users
+from google.appengine.ext import webapp
+from google.appengine.ext.webapp import template
+from google.appengine.ext.webapp.util import run_wsgi_app
+from google.appengine.ext import db
+
+import pygooglechart as gchart
+
+from models import *
+from util import *
+
+
+class Index(webapp.RequestHandler):
+    def get_weight_data(self):        
+        time_window = timedelta(7)
+        now = datetime.now()
+        start_time = now - time_window
+        #print time_window, now, start_time
+        
+        weights = WeightEntry.all()
+        weights.filter('date >=', start_time)
+        
+        ww = [w.weight for w in weights]
+        dd = [days_between(w.date, start_time) for w in weights]
+
+        #test data
+        #dd = [x + .3 for x in range(7)]
+        #ww = [195,197,200,200,204,206,207]
+
+        return dd,ww
+
+    def make_weight_chart_url(self, weight_data):
+        days, weights = weight_data
+        if days == []:
+            return '' #empty image url
+
+        min_y = nearest_5(min(weights)*.95)
+        max_y = nearest_5(max(weights)*1.02)
+        dy = max_y - min_y
+        
+        x_range = [0, 7] #last week of data        
+        y_range = [min_y, max_y]
+        
+        chart = gchart.XYLineChart(630, 200, y_range=y_range, x_range=x_range)
+        chart.add_data(days)
+        chart.add_data(weights)
+        
+        chart.set_colours(['0000FF']) # Set the line colour to blue
+        #chart.fill_linear_stripes(gchart.Chart.CHART, 0, 'CCCCCC', 0.25, 'FFFFFF', 0.25)\
+        
+        y_spacing = 5 #units
+        chart.set_grid(0, 100./dy*y_spacing, 5, 5) #vert, horiz, line, spacing (px)
+ 
+        y_labels = range(min_y, max_y+y_spacing, y_spacing)
+        chart.set_axis_labels(gchart.Axis.LEFT, y_labels)
+        
+        now = datetime.now()
+        x_labels = [(now - timedelta(t)).strftime(r'%m/%d') for t in range(7+1,0,-1)]
+        chart.set_axis_labels(gchart.Axis.BOTTOM, x_labels)
+        
+        return chart.get_url()
+    
+    def get(self):
+        weight_data = self.get_weight_data()
+
+        params = {}
+        params['dates'] = weight_data[0]
+        params['weights'] = weight_data[1]
+        params['weight_img_url'] = self.make_weight_chart_url(weight_data)
+        params.update(make_logon_anchor_params(self))
+
+        path = os.path.join(os.path.dirname(__file__), 'index.html')
+        self.response.out.write(template.render(path, params))
+
+application = webapp.WSGIApplication(
+                                     [('/', Index)],
+                                     debug=True)
+
+def main():
+    run_wsgi_app(application)
+
+if __name__ == "__main__":
+    main()
