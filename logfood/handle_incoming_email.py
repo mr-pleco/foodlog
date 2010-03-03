@@ -17,10 +17,14 @@ def process_annotation(received_text):
     entry.content = received_text
     return entry
 
+def get_recent_weight():
+    result = db.GqlQuery("SELECT * FROM WeightEntry order by weight desc LIMIT 1").fetch(1)
+    if (len(result) == 0):
+        return None #ain't no weights yet!
+    return result[0].weight
+
 class LogSenderHandler(InboundMailHandler):
     def receive(self, email):
-        #http://code.google.com/appengine/docs/python/mail/receivingmail.html
-        
         attachments = get_attachments(email)
         if len(attachments) >= 1:
             #for filename, content in attachments:
@@ -30,6 +34,7 @@ class LogSenderHandler(InboundMailHandler):
             filename, content = attachments[0]
             picentry = PicEntry()
             picentry.picture = content.decode() #EncodedPayload.decode()
+            picentry.weight = get_recent_weight()
             picentry.author = None #get user from mail_message.sender
             picentry.put()
 

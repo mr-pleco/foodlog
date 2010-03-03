@@ -8,6 +8,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext import db
 
 import pygooglechart as gchart
+from google.appengine.api import images
 
 from models import *
 from util import *
@@ -79,9 +80,34 @@ class Index(webapp.RequestHandler):
         path = os.path.join(os.path.dirname(__file__), 'index.html')
         self.response.out.write(template.render(path, params))
 
+class GetPic(webapp.RequestHandler):
+    def get(self):
+        when_str = self.request.get('when')
+        picentry = getPic(when_str)
+        if (picentry and picentry.picture):
+            picdata = picentry.picture
+            picdata = images.resize(picdata, width=300)
+            self.response.headers['Content-Type'] = 'image/png'
+            self.response.out.write(picdata)
+        else:
+            self.redirect('/static/noimage.jpg')
+    
+def getPic(when_str):
+    if when_str=='last':
+        result = db.GqlQuery("SELECT * FROM PicEntry order by date desc LIMIT 1").fetch(1)
+        if (len(result) > 0):
+            return result[0]
+        return
+    elif when_str=='heaviest':
+        result = db.GqlQuery("SELECT * FROM PicEntry order by weight LIMIT 1").fetch(1)
+        if (len(result) > 0):
+            return result[0]
+        return
+
 application = webapp.WSGIApplication(
-                                     [('/', Index)],
-                                     debug=True)
+    [('/', Index),
+     ('/pic', GetPic)],
+    debug=True)
 
 def main():
     run_wsgi_app(application)

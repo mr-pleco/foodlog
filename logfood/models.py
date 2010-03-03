@@ -18,5 +18,6 @@ class WeightEntry(db.Model):
 
 class PicEntry(db.Model):
     picture = db.BlobProperty(default=None)
+    weight = db.FloatProperty()
     author = db.UserProperty()
     date = db.DateTimeProperty(auto_now_add=True)

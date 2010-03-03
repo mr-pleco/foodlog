@@ -10,4 +10,6 @@ handlers:
 - url: /_ah/mail/.+
   script: handle_incoming_email.py
 - url: /.*
-  script: logfood.py 
+  script: logfood.py
+- url: /static
+  static_dir: static
