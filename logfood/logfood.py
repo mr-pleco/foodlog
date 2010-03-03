@@ -14,8 +14,8 @@ from util import *
 
 
 class Index(webapp.RequestHandler):
-    def get_weight_data(self):        
-        time_window = timedelta(7)
+    def get_weight_data(self, width_days):        
+        time_window = timedelta(width_days)
         now = datetime.now()
         start_time = now - time_window
         #print time_window, now, start_time
@@ -32,7 +32,7 @@ class Index(webapp.RequestHandler):
 
         return dd,ww
 
-    def make_weight_chart_url(self, weight_data):
+    def make_weight_chart_url(self, weight_data, width_days=7):
         days, weights = weight_data
         if days == []:
             return '' #empty image url
@@ -41,7 +41,7 @@ class Index(webapp.RequestHandler):
         max_y = nearest_5(max(weights)*1.02)
         dy = max_y - min_y
         
-        x_range = [0, 7] #last week of data        
+        x_range = [0, width_days] #last week of data        
         y_range = [min_y, max_y]
         
         chart = gchart.XYLineChart(630, 200, y_range=y_range, x_range=x_range)
@@ -58,18 +58,22 @@ class Index(webapp.RequestHandler):
         chart.set_axis_labels(gchart.Axis.LEFT, y_labels)
         
         now = datetime.now()
-        x_labels = [(now - timedelta(t)).strftime(r'%m/%d') for t in range(7+1,0,-1)]
+        x_labels = [(now - timedelta(t)).strftime(r'%m/%d') for t in range(width_days+1,0,-1)]
         chart.set_axis_labels(gchart.Axis.BOTTOM, x_labels)
         
         return chart.get_url()
     
     def get(self):
-        weight_data = self.get_weight_data()
+        try:
+            width_days = int(self.request.get("d")) or 7
+        except ValueError:
+            width_days = 7
+        weight_data = self.get_weight_data(width_days)
 
         params = {}
         params['dates'] = weight_data[0]
         params['weights'] = weight_data[1]
-        params['weight_img_url'] = self.make_weight_chart_url(weight_data)
+        params['weight_img_url'] = self.make_weight_chart_url(weight_data,width_days)
         params.update(make_logon_anchor_params(self))
 
         path = os.path.join(os.path.dirname(__file__), 'index.html')
